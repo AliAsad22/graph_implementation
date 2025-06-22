@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hobby Explorer</title>
+    <!-- Import vis-network library for graph visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background-color: #121212; /* Dark background */
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+        #mynetwork {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 2;
+            background-color: rgba(30, 30, 30, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 250px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        h2 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            font-weight: 500;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+        }
+        label {
+            font-size: 12px;
+            color: #aaa;
+        }
+        input[type="text"], select {
+            background-color: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-family: 'Inter', sans-serif;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        select[multiple] {
+            height: 120px;
+        }
+        input[type="text"]::placeholder {
+            color: #888;
+        }
+        button {
+            background-color: #7E57C2;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #673AB7;
+        }
+        #results-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            background-color: rgba(30, 30, 30, 0.9);
+            padding: 10px 25px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 80vw;
+            transition: opacity 0.3s, visibility 0.3s;
+            opacity: 0;
+            visibility: hidden;
+        }
+        #results-container.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        #results-container h3 {
+            margin: 0 0 10px 0;
+            font-weight: 500;
+            font-size: 16px;
+            color: #9575CD;
+        }
+        #results-container ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+        #results-container li {
+            background: #424242;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+    </style>
+    <!-- Google Fonts for better typography -->
+     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
+</head>
+<body>
+
+    <div id="ui-container">
+        <div class="control-group">
+            <h2>Search</h2>
+            <input type="text" id="search-input" placeholder="Enter hobby name...">
+            <button id="search-btn">Search</button>
+        </div>
+        <div class="control-group">
+            <h2>Add Subcategory</h2>
+            <input type="text" id="node-name-input" placeholder="New subcategory name...">
+            <label for="category-select">Link to Categories (Ctrl/Cmd+Click):</label>
+            <select id="category-select" multiple></select>
+            <button id="add-node-btn">Add</button>
+        </div>
+    </div>
+
+    <!-- This div is the container for our graph visualization -->
+    <div id="mynetwork"></div>
+    
+    <!-- This div will show the results of a search -->
+    <div id="results-container"></div>
+
+
+    <script type="text/javascript">
+        // --- Graph Data ---
+        const nodes = new vis.DataSet([
+            // Category Nodes
+            { id: "Individual sports", label: "Individual Sports", group: "category" }, { id: "Team sports", label: "Team Sports", group: "category" }, { id: "Mind and precision sports", label: "Mind & Precision", group: "category" }, { id: "Performing arts", label: "Performing Arts", group: "category" }, { id: "Visual Arts", label: "Visual Arts", group: "category" }, { id: "Media arts", label: "Media Arts", group: "category" },
+            // Subcategory Nodes
+            { id: "Ballet", label: "Ballet", group: "individual" }, { id: "Parkour", label: "Parkour", group: "individual" }, { id: "Skateboarding", label: "Skateboarding", group: "individual" }, { id: "Figure Skating", label: "Figure Skating", group: "individual" }, { id: "Snowboarding", label: "Snowboarding", group: "individual" }, { id: "Skiing", label: "Skiing", group: "individual" }, { id: "Rowing", label: "Rowing", group: "individual" }, { id: "Bowling", label: "Bowling", group: "individual" }, { id: "Golf", label: "Golf", group: "individual" }, { id: "Pool and Snooker", label: "Pool & Snooker", group: "individual" }, { id: "Archery", label: "Archery", group: "individual" }, { id: "Squash", label: "Squash", group: "individual" }, { id: "Table Tennis", label: "Table Tennis", group: "individual" }, { id: "Badminton", label: "Badminton", group: "individual" }, { id: "Tennis", label: "Tennis", group: "individual" }, { id: "Fencing", label: "Fencing", group: "individual" }, { id: "Mixed Martial Arts (MMA)", label: "MMA", group: "individual" }, { id: "Dodgeball", label: "Dodgeball", group: "team" }, { id: "Throwball", label: "Throwball", group: "team" }, { id: "Futsal", label: "Futsal", group: "team" }, { id: "Water Polo", label: "Water Polo", group: "team" }, { id: "Netball", label: "Netball", group: "team" }, { id: "Handball", label: "Handball", group: "team" }, { id: "Tug of War", label: "Tug of War", group: "team" }, { id: "Volleyball", label: "Volleyball", group: "team" }, { id: "Cricket", label: "Cricket", group: "team" }, { id: "Softball", label: "Softball", group: "team" }, { id: "Baseball", label: "Baseball", group: "team" }, { id: "Basketball", label: "Basketball", group: "team" }, { id: "Rugby", label: "Rugby", group: "team" }, { id: "American Football", label: "American Football", group: "team" }, { id: "Soccer", label: "Soccer", group: "team" }, { id: "Field Hockey", label: "Field Hockey", group: "team" }, { id: "Lacrosse", label: "Lacrosse", group: "team" }, { id: "Sudoku", label: "Sudoku", group: "mind" }, { id: "Speedcubing (Rubik's Cube)", label: "Speedcubing", group: "mind" }, { id: "Solitaire", label: "Solitaire", group: "mind" }, { id: "Rummy", label: "Rummy", group: "mind" }, { id: "Spades", label: "Spades", group: "mind" }, { id: "Hearts", label: "Hearts", group: "mind" }, { id: "Poker", label: "Poker", group: "mind" }, { id: "Sports Games", label: "Sports Games", group: "mind" }, { id: "Fighting Games", label: "Fighting Games", group: "mind" }, { id: "Real-Time Strategy E-Sports", label: "RTS E-Sports", group: "mind" }, { id: "First-Person Shooters", label: "FPS E-Sports", group: "mind" }, { id: "Tactical Wargame E-Sports", label: "Wargame E-Sports", group: "mind" }, { id: "Fantasy E-Sports", label: "Fantasy E-Sports", group: "mind" }, { id: "Racing E-Sports", label: "Racing E-Sports", group: "mind" }, { id: "Shogi", label: "Shogi", group: "mind" }, { id: "Go (Weiqi)", label: "Go (Weiqi)", group: "mind" }, { id: "Chess", label: "Chess", group: "mind" }, { id: "Live Music", label: "Live Music", group: "performing" }, { id: "Choir", label: "Choir", group: "performing" }, { id: "Instrumental Music", label: "Instrumental Music", group: "performing" }, { id: "Ballroom Dance", label: "Ballroom Dance", group: "performing" }, { id: "Cultural Dance", label: "Cultural Dance", group: "performing" }, { id: "Contemporary Dance", label: "Contemporary Dance", group: "performing" }, { id: "Monologue", label: "Monologue", group: "performing" }, { id: "Play/Theater", label: "Play/Theater", group: "performing" }, { id: "Mime", label: "Mime", group: "performing" }, { id: "Improv Theater", label: "Improv Theater", group: "performing" }, { id: "Singing", label: "Singing", group: "performing" }, { id: "Stand-up Comedy", label: "Stand-up Comedy", group: "performing" }, { id: "Magic", label: "Magic", group: "performing" }, { id: "Mixed Media Arts", label: "Mixed Media Arts", group: "visual" }, { id: "Digital Art", label: "Digital Art", group: "visual" }, { id: "Pottery and Sculpture", label: "Pottery & Sculpture", group: "visual" }, { id: "Craftsmanship", label: "Craftsmanship", group: "visual" }, { id: "Handwriting", label: "Handwriting", group: "visual" }, { id: "Mural Painting", label: "Mural Painting", group: "visual" }, { id: "Graffiti Battle", label: "Graffiti Battle", group: "visual" }, { id: "Street Art", label: "Street Art", group: "visual" }, { id: "Modeling", label: "Modeling", group: "visual" }, { id: "Costume Design", label: "Costume Design", group: "visual" }, { id: "Wearable Art", label: "Wearable Art", group: "visual" }, { id: "Cultural Fashion Show", label: "Cultural Fashion Show", group: "visual" }, { id: "Textile Arts", label: "Textile Arts", group: "visual" }, { id: "Printmaking", label: "Printmaking", group: "visual" }, { id: "Illustration", label: "Illustration", group: "visual" }, { id: "Audio Mixing", label: "Audio Mixing", group: "media" }, { id: "Sound Design", label: "Sound Design", group: "media" }, { id: "Podcast Production", label: "Podcast Production", group: "media" }, { id: "Street Photography", label: "Street Photography", group: "media" }, { id: "Portrait Photography", label: "Portrait Photography", group: "media" }, { id: "Nature Photography", label: "Nature Photography", group: "media" }, { id: "Photography", label: "Photography", group: "media" }, { id: "Motion Graphics", label: "Motion Graphics", group: "media" }, { id: "Video Game Art", label: "Video Game Art", group: "media" }, { id: "Multimedia Arts", label: "Multimedia Arts", group: "media" }, { id: "Graphic Design", label: "Graphic Design", group: "media" }, { id: "Music Video", label: "Music Video", group: "media" }, { id: "Film Criticism", label: "Film Criticism", group: "media" }, { id: "Animation", label: "Animation", group: "media" }, { id: "Storyboarding", label: "Storyboarding", group: "media" }, { id: "Documentary Film", label: "Documentary Film", group: "media" }, { id: "Short Film", label: "Short Film", group: "media" },
+        ]);
+
+        const edges = new vis.DataSet([
+            { from: "Individual sports", to: "Ballet" }, { from: "Individual sports", to: "Parkour" }, { from: "Individual sports", to: "Skateboarding" }, { from: "Individual sports", to: "Figure Skating" }, { from: "Individual sports", to: "Snowboarding" }, { from: "Individual sports", to: "Skiing" }, { from: "Individual sports", to: "Rowing" }, { from: "Individual sports", to: "Bowling" }, { from: "Individual sports", to: "Golf" }, { from: "Individual sports", to: "Pool and Snooker" }, { from: "Individual sports", to: "Archery" }, { from: "Individual sports", to: "Squash" }, { from: "Individual sports", to: "Table Tennis" }, { from: "Individual sports", to: "Badminton" }, { from: "Individual sports", to: "Tennis" }, { from: "Individual sports", to: "Fencing" }, { from: "Individual sports", to: "Mixed Martial Arts (MMA)" }, { from: "Team sports", to: "Dodgeball" }, { from: "Team sports", to: "Throwball" }, { from: "Team sports", to: "Futsal" }, { from: "Team sports", to: "Water Polo" }, { from: "Team sports", to: "Netball" }, { from: "Team sports", to: "Handball" }, { from: "Team sports", to: "Tug of War" }, { from: "Team sports", to: "Volleyball" }, { from: "Team sports", to: "Cricket" }, { from: "Team sports", to: "Softball" }, { from: "Team sports", to: "Baseball" }, { from: "Team sports", to: "Basketball" }, { from: "Team sports", to: "Rugby" }, { from: "Team sports", to: "American Football" }, { from: "Team sports", to: "Soccer" }, { from: "Team sports", to: "Field Hockey" }, { from: "Team sports", to: "Lacrosse" }, { from: "Mind and precision sports", to: "Sudoku" }, { from: "Mind and precision sports", to: "Speedcubing (Rubik's Cube)" }, { from: "Mind and precision sports", to: "Solitaire" }, { from: "Mind and precision sports", to: "Rummy" }, { from: "Mind and precision sports", to: "Spades" }, { from: "Mind and precision sports", to: "Hearts" }, { from: "Mind and precision sports", to: "Poker" }, { from: "Mind and precision sports", to: "Sports Games" }, { from: "Mind and precision sports", to: "Fighting Games" }, { from: "Mind and precision sports", to: "Real-Time Strategy E-Sports" }, { from: "Mind and precision sports", to: "First-Person Shooters" }, { from: "Mind and precision sports", to: "Tactical Wargame E-Sports" }, { from: "Mind and precision sports", to: "Fantasy E-Sports" }, { from: "Mind and precision sports", to: "Racing E-Sports" }, { from: "Mind and precision sports", to: "Shogi" }, { from: "Mind and precision sports", to: "Go (Weiqi)" }, { from: "Mind and precision sports", to: "Chess" }, { from: "Performing arts", to: "Live Music" }, { from: "Performing arts", to: "Choir" }, { from: "Performing arts", to: "Instrumental Music" }, { from: "Performing arts", to: "Ballroom Dance" }, { from: "Performing arts", to: "Cultural Dance" }, { from: "Performing arts", to: "Contemporary Dance" }, { from: "Performing arts", to: "Ballet" }, { from: "Performing arts", to: "Monologue" }, { from: "Performing arts", to: "Play/Theater" }, { from: "Performing arts", to: "Mime" }, { from: "Performing arts", to: "Improv Theater" }, { from: "Performing arts", to: "Singing" }, { from: "Performing arts", to: "Stand-up Comedy" }, { from: "Performing arts", to: "Magic" }, { from: "Visual Arts", to: "Mixed Media Arts" }, { from: "Visual Arts", to: "Digital Art" }, { from: "Visual Arts", to: "Pottery and Sculpture" }, { from: "Visual Arts", to: "Craftsmanship" }, { from: "Visual Arts", to: "Handwriting" }, { from: "Visual Arts", to: "Mural Painting" }, { from: "Visual Arts", to: "Graffiti Battle" }, { from: "Visual Arts", to: "Street Art" }, { from: "Visual Arts", to: "Modeling" }, { from: "Visual Arts", to: "Costume Design" }, { from: "Visual Arts", to: "Wearable Art" }, { from: "Visual Arts", to: "Cultural Fashion Show" }, { from: "Visual Arts", to: "Textile Arts" }, { from: "Visual Arts", to: "Printmaking" }, { from: "Visual Arts", to: "Illustration" }, { from: "Media arts", to: "Audio Mixing" }, { from: "Media arts", to: "Sound Design" }, { from: "Media arts", to: "Podcast Production" }, { from: "Media arts", to: "Street Photography" }, { from: "Media arts", to: "Portrait Photography" }, { from: "Media arts", to: "Nature Photography" }, { from: "Media arts", to: "Photography" }, { from: "Media arts", to: "Motion Graphics" }, { from: "Media arts", to: "Video Game Art" }, { from: "Media arts", to: "Multimedia Arts" }, { from: "Media arts", to: "Graphic Design" }, { from: "Media arts", to: "Music Video" }, { from: "Media arts", to: "Film Criticism" }, { from: "Media arts", to: "Animation" }, { from: "Media arts", to: "Storyboarding" }, { from: "Media arts", to: "Documentary Film" }, { from: "Media arts", to: "Short Film" },
+        ]);
+
+        const container = document.getElementById('mynetwork');
+        const data = { nodes: nodes, edges: edges };
+
+        const options = {
+            nodes: { borderWidth: 2, font: { color: '#e0e0e0', size: 14, face: 'Inter' }, shapeProperties: { interpolation: false } },
+            groups: { category: { shape: 'dot', color: { background: 'rgba(126, 87, 194, 0.5)', border: '#7E57C2', highlight: { background: '#7E57C2', border: '#9575CD' } }, size: 30, font: { color: '#ffffff', size: 18, } }, individual: { shape: 'dot', color: { background: 'rgba(41, 182, 246, 0.5)', border: '#29B6F6', highlight: { background: '#29B6F6', border: '#4FC3F7' } }, size: 15 }, team: { shape: 'dot', color: { background: 'rgba(102, 187, 106, 0.5)', border: '#66BB6A', highlight: { background: '#66BB6A', border: '#81C784' } }, size: 15 }, mind: { shape: 'dot', color: { background: 'rgba(255, 193, 7, 0.5)', border: '#FFC107', highlight: { background: '#FFC107', border: '#FFCA28' } }, size: 15 }, performing: { shape: 'dot', color: { background: 'rgba(236, 64, 122, 0.5)', border: '#EC407A', highlight: { background: '#EC407A', border: '#F06292' } }, size: 15 }, visual: { shape: 'dot', color: { background: 'rgba(38, 166, 154, 0.5)', border: '#26A69A', highlight: { background: '#26A69A', border: '#4DB6AC' } }, size: 15 }, media: { shape: 'dot', color: { background: 'rgba(255, 167, 38, 0.5)', border: '#FFA726', highlight: { background: '#FFA726', border: '#FFB74D' } }, size: 15 }, },
+            edges: { width: 1.5, color: { color: '#424242', highlight: '#7E57C2', hover: '#9E9E9E' }, arrows: { to: { enabled: true, scaleFactor: 0.5 } }, smooth: { type: 'continuous' } },
+            physics: { forceAtlas2Based: { gravitationalConstant: -50, centralGravity: 0.01, springLength: 230, springConstant: 0.08 }, minVelocity: 0.75, solver: 'forceAtlas2Based', },
+            interaction: { hover: true, tooltipDelay: 200, navigationButtons: false, keyboard: true, }
+        };
+
+        const network = new vis.Network(container, data, options);
+        
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+        const nodeNameInput = document.getElementById('node-name-input');
+        const categorySelect = document.getElementById('category-select');
+        const addNodeBtn = document.getElementById('add-node-btn');
+        const resultsContainer = document.getElementById('results-container');
+
+        function updateCategoryDropdown() {
+            categorySelect.innerHTML = '';
+            const categories = nodes.get({ filter: item => item.group === 'category' });
+            categories.sort((a, b) => a.label.localeCompare(b.label)).forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.label;
+                categorySelect.appendChild(option);
+            });
+        }
+
+        function searchNode() {
+            const query = searchInput.value.trim();
+            resultsContainer.innerHTML = '';
+            resultsContainer.classList.remove('visible');
+
+            if (!query) return;
+
+            const searchTokens = query.toLowerCase().split(' ').filter(t => t !== '');
+            const foundNodes = nodes.get({
+                filter: item => searchTokens.every(token => item.label.toLowerCase().includes(token))
+            });
+
+            if (foundNodes.length > 0) {
+                const primaryNode = foundNodes[0];
+                const nodesToHighlight = [primaryNode.id];
+                let resultsHtml = '';
+
+                if (primaryNode.group === 'category') {
+                    const childNodes = network.getConnectedNodes(primaryNode.id, 'to');
+                    resultsHtml = `<h3>Subcategories in ${primaryNode.label}</h3><ul>`;
+                    childNodes.map(nodeId => nodes.get(nodeId))
+                        .sort((a,b) => a.label.localeCompare(b.label))
+                        .forEach(node => {
+                            resultsHtml += `<li>${node.label}</li>`;
+                            nodesToHighlight.push(node.id);
+                        });
+                    resultsHtml += '</ul>';
+                } else {
+                    const parentNodes = network.getConnectedNodes(primaryNode.id, 'from');
+                     resultsHtml = `<h3>Categories for ${primaryNode.label}</h3><ul>`;
+                    parentNodes.forEach(nodeId => {
+                        const nodeDetails = nodes.get(nodeId);
+                        if (nodeDetails && nodeDetails.group === 'category') {
+                            nodesToHighlight.push(nodeId);
+                            resultsHtml += `<li>${nodeDetails.label}</li>`;
+                        }
+                    });
+                    resultsHtml += '</ul>';
+                }
+
+                network.focus(primaryNode.id, {
+                    scale: 1.2,
+                    animation: { duration: 1000, easingFunction: 'easeInOutQuad' }
+                });
+                network.selectNodes(nodesToHighlight);
+                
+                resultsContainer.innerHTML = resultsHtml;
+                resultsContainer.classList.add('visible');
+
+            } else {
+                alert('Hobby not found.');
+            }
+        }
+        
+        function addNode() {
+            const nodeName = nodeNameInput.value.trim();
+            const selectedOptions = Array.from(categorySelect.selectedOptions);
+            const categoryIds = selectedOptions.map(option => option.value);
+
+            if (!nodeName || categoryIds.length === 0) {
+                alert('Please provide a name and select at least one category.');
+                return;
+            }
+            if (nodes.get(nodeName)) {
+                alert(`Subcategory '${nodeName}' already exists.`);
+                return;
+            }
+
+            try {
+                const firstCategoryId = categoryIds[0];
+                const categoryNode = nodes.get(firstCategoryId);
+
+                let groupType = 'individual'; // Default group
+                 if (categoryNode && categoryNode.group === 'category') {
+                    const firstWord = firstCategoryId.split(' ')[0].toLowerCase();
+                    const groupMap = { team: 'team', mind: 'mind', performing: 'performing', visual: 'visual', media: 'media' };
+                    groupType = groupMap[firstWord] || 'individual';
+                }
+                
+                nodes.add({ id: nodeName, label: nodeName, group: groupType });
+
+                categoryIds.forEach(categoryId => {
+                    edges.add({ from: categoryId, to: nodeName });
+                });
+
+                nodeNameInput.value = '';
+                categorySelect.selectedIndex = -1; // Deselect all
+            } catch (err) {
+                alert(err);
+            }
+        }
+
+        // --- Event Listeners ---
+        searchBtn.addEventListener('click', searchNode);
+        searchInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') searchNode(); });
+        addNodeBtn.addEventListener('click', addNode);
+        network.on("click", (params) => {
+            if (params.nodes.length === 0) { // Clicked on empty space
+                resultsContainer.innerHTML = '';
+                resultsContainer.classList.remove('visible');
+                network.unselectAll();
+            }
+        });
+
+        // Initial setup
+        updateCategoryDropdown();
+
+    </script>
+</body>
+</html>
